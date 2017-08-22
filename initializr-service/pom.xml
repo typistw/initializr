@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+		 xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		 xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
 	<modelVersion>4.0.0</modelVersion>
 	<parent>
@@ -23,6 +24,15 @@
 		<dependency>
 			<groupId>io.spring.initializr</groupId>
 			<artifactId>initializr-actuator</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>javax.cache</groupId>
+			<artifactId>cache-api</artifactId>
+		</dependency>
+		<dependency>
+			<groupId>org.ehcache</groupId>
+			<artifactId>ehcache</artifactId>
 		</dependency>
 
 		<dependency>
@@ -53,10 +63,6 @@
 		<finalName>initializr-service</finalName>
 		<plugins>
 			<plugin>
-				<groupId>org.codehaus.gmavenplus</groupId>
-				<artifactId>gmavenplus-plugin</artifactId>
-			</plugin>
-			<plugin>
 				<groupId>pl.project13.maven</groupId>
 				<artifactId>git-commit-id-plugin</artifactId>
 				<executions>
@@ -70,7 +76,9 @@
 					<dotGitDirectory>${project.basedir}/../.git</dotGitDirectory>
 					<dateFormat>yyyy-MM-dd'T'HH:mm:ssZ</dateFormat>
 					<generateGitPropertiesFile>true</generateGitPropertiesFile>
-					<generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
+					<generateGitPropertiesFilename>
+						${project.build.outputDirectory}/git.properties
+					</generateGitPropertiesFilename>
 				</configuration>
 			</plugin>
 			<plugin>
@@ -93,7 +101,8 @@
 						</goals>
 						<configuration>
 							<additionalProperties>
-								<versions.spring-boot>${spring.boot.version}</versions.spring-boot>
+								<versions.spring-boot>${spring.boot.version}
+								</versions.spring-boot>
 							</additionalProperties>
 						</configuration>
 					</execution>

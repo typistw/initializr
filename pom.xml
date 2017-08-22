@@ -37,7 +37,7 @@
 
 	<properties>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-		<spring.boot.version>1.4.4.RELEASE</spring.boot.version>
+		<spring.boot.version>1.4.7.RELEASE</spring.boot.version>
 		<java.version>1.8</java.version>
 	</properties>
 
@@ -81,7 +81,7 @@
 			<dependency>
 				<groupId>org.springframework.cloud</groupId>
 				<artifactId>spring-cloud-contract-dependencies</artifactId>
-				<version>1.0.3.RELEASE</version>
+				<version>1.0.5.RELEASE</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -98,13 +98,13 @@
 				<version>1.5</version>
 			</dependency>
 			<dependency>
-				<groupId>org.gebish</groupId>
-				<artifactId>geb-core</artifactId>
-				<version>0.10.0</version>
+				<groupId>org.apache.ant</groupId>
+				<artifactId>ant</artifactId>
+				<version>1.10.1</version>
 				<exclusions>
 					<exclusion>
-						<groupId>org.codehaus.groovy</groupId>
-						<artifactId>groovy-all</artifactId>
+						<groupId>org.apache.ant</groupId>
+						<artifactId>ant-launcher</artifactId>
 					</exclusion>
 				</exclusions>
 			</dependency>
@@ -166,21 +166,6 @@
 					<groupId>org.codehaus.mojo</groupId>
 					<artifactId>build-helper-maven-plugin</artifactId>
 					<version>1.10</version>
-				</plugin>
-				<plugin>
-					<groupId>org.codehaus.gmavenplus</groupId>
-					<artifactId>gmavenplus-plugin</artifactId>
-					<version>1.5</version>
-					<executions>
-						<execution>
-							<goals>
-								<goal>addSources</goal>
-								<goal>addTestSources</goal>
-								<goal>compile</goal>
-								<goal>testCompile</goal>
-							</goals>
-						</execution>
-					</executions>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>

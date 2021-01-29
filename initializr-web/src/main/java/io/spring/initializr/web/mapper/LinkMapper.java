@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -21,14 +21,22 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.spring.initializr.metadata.Link;
 
 /**
- * Generate a json representation for {@link Link}
+ * Generate a json representation for {@link Link}.
  *
  * @author Stephane Nicoll
  */
-public class LinkMapper {
+public final class LinkMapper {
+
+	private static final JsonNodeFactory nodeFactory = JsonNodeFactory.instance;
+
+	private LinkMapper() {
+	}
 
 	/**
 	 * Map the specified links to a json model. If several links share the same relation,
@@ -36,37 +44,36 @@ public class LinkMapper {
 	 * @param links the links to map
 	 * @return a model for the specified links
 	 */
-	public static Map<String, Object> mapLinks(List<Link> links) {
-		Map<String, Object> result = new LinkedHashMap<>();
+	public static ObjectNode mapLinks(List<Link> links) {
+		ObjectNode result = nodeFactory.objectNode();
 		Map<String, List<Link>> byRel = new LinkedHashMap<>();
-		links.forEach(it -> byRel.computeIfAbsent(it.getRel(),
-				k -> new ArrayList<>()).add(it));
+		links.forEach((it) -> byRel.computeIfAbsent(it.getRel(), (k) -> new ArrayList<>()).add(it));
 		byRel.forEach((rel, l) -> {
 			if (l.size() == 1) {
-				Map<String, Object> root = new LinkedHashMap<>();
+				ObjectNode root = JsonNodeFactory.instance.objectNode();
 				mapLink(l.get(0), root);
-				result.put(rel, root);
+				result.set(rel, root);
 			}
 			else {
-				List<Map<String, Object>> root = new ArrayList<>();
-				l.forEach(link -> {
-					Map<String, Object> model = new LinkedHashMap<>();
-					mapLink(link, model);
-					root.add(model);
+				ArrayNode root = JsonNodeFactory.instance.arrayNode();
+				l.forEach((link) -> {
+					ObjectNode node = JsonNodeFactory.instance.objectNode();
+					mapLink(link, node);
+					root.add(node);
 				});
-				result.put(rel, root);
+				result.set(rel, root);
 			}
 		});
 		return result;
 	}
 
-	private static void mapLink(Link link, Map<String, Object> model) {
-		model.put("href", link.getHref());
+	private static void mapLink(Link link, ObjectNode node) {
+		node.put("href", link.getHref());
 		if (link.isTemplated()) {
-			model.put("templated", true);
+			node.put("templated", true);
 		}
 		if (link.getDescription() != null) {
-			model.put("title", link.getDescription());
+			node.put("title", link.getDescription());
 		}
 	}
 

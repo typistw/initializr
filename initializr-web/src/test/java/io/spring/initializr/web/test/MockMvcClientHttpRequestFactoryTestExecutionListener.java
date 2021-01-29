@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2015 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -24,29 +24,27 @@ import org.springframework.test.web.servlet.MockMvc;
 /**
  * @author Dave Syer
  */
-public final class MockMvcClientHttpRequestFactoryTestExecutionListener
-		extends AbstractTestExecutionListener {
+public final class MockMvcClientHttpRequestFactoryTestExecutionListener extends AbstractTestExecutionListener {
 
 	private MockMvcClientHttpRequestFactory factory;
 
 	@Override
 	public void beforeTestClass(TestContext testContext) throws Exception {
-		ConfigurableBeanFactory beanFactory = (ConfigurableBeanFactory) testContext
-				.getApplicationContext().getAutowireCapableBeanFactory();
+		ConfigurableBeanFactory beanFactory = (ConfigurableBeanFactory) testContext.getApplicationContext()
+				.getAutowireCapableBeanFactory();
 		if (!beanFactory.containsBean("mockMvcClientHttpRequestFactory")) {
-			factory = new MockMvcClientHttpRequestFactory(
-					beanFactory.getBean(MockMvc.class));
-			beanFactory.registerSingleton("mockMvcClientHttpRequestFactory",
-					this.factory);
+			this.factory = new MockMvcClientHttpRequestFactory(beanFactory.getBean(MockMvc.class));
+			beanFactory.registerSingleton("mockMvcClientHttpRequestFactory", this.factory);
 		}
 		else {
-			factory = beanFactory.getBean("mockMvcClientHttpRequestFactory", MockMvcClientHttpRequestFactory.class);
+			this.factory = beanFactory.getBean("mockMvcClientHttpRequestFactory",
+					MockMvcClientHttpRequestFactory.class);
 		}
 	}
 
 	@Override
 	public void beforeTestMethod(TestContext testContext) throws Exception {
-		if (factory != null) {
+		if (this.factory != null) {
 			this.factory.setTest(testContext.getTestClass(), testContext.getTestMethod());
 		}
 	}

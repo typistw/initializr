@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,18 @@
 
 package io.spring.initializr.web.support;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import io.spring.initializr.generator.version.Version;
+import io.spring.initializr.generator.version.Version.Qualifier;
+import io.spring.initializr.generator.version.VersionParser;
 import io.spring.initializr.metadata.DefaultMetadataElement;
-import org.json.JSONArray;
-import org.json.JSONObject;
 
 import org.springframework.web.client.RestTemplate;
 
@@ -31,33 +37,92 @@ import org.springframework.web.client.RestTemplate;
  *
  * @author Stephane Nicoll
  */
-public class SpringBootMetadataReader {
+class SpringBootMetadataReader {
 
-	private final JSONObject content;
+	private static final Comparator<DefaultMetadataElement> VERSION_METADATA_ELEMENT_COMPARATOR = new VersionMetadataElementComparator();
+
+	private final JsonNode content;
 
 	/**
-	 * Parse the content of the metadata at the specified url
+	 * Parse the content of the metadata at the specified url.
+	 * @param objectMapper the object mapper
+	 * @param restTemplate the rest template
+	 * @param url the metadata URL
+	 * @throws IOException on load error
 	 */
-	public SpringBootMetadataReader(RestTemplate restTemplate, String url) {
-		this.content = new JSONObject(restTemplate.getForObject(url, String.class));
+	SpringBootMetadataReader(ObjectMapper objectMapper, RestTemplate restTemplate, String url) throws IOException {
+		this.content = objectMapper.readTree(restTemplate.getForObject(url, String.class));
 	}
 
 	/**
 	 * Return the boot versions parsed by this instance.
+	 * @return the versions
 	 */
-	public List<DefaultMetadataElement> getBootVersions() {
-		JSONArray array = content.getJSONArray("projectReleases");
+	List<DefaultMetadataElement> getBootVersions() {
+		ArrayNode releases = (ArrayNode) this.content.get("projectReleases");
 		List<DefaultMetadataElement> list = new ArrayList<>();
-		for (int i = 0; i < array.length(); i++) {
-			JSONObject it = array.getJSONObject(i);
-			DefaultMetadataElement version = new DefaultMetadataElement();
-			version.setId(it.getString("version"));
-			String name = it.getString("versionDisplayName");
-			version.setName(it.getBoolean("snapshot") ? name + " (SNAPSHOT)" : name);
-			version.setDefault(it.getBoolean("current"));
-			list.add(version);
+		for (JsonNode node : releases) {
+			DefaultMetadataElement versionMetadata = parseVersionMetadata(node);
+			if (versionMetadata != null) {
+				list.add(versionMetadata);
+			}
 		}
+		list.sort(VERSION_METADATA_ELEMENT_COMPARATOR.reversed());
 		return list;
+	}
+
+	private DefaultMetadataElement parseVersionMetadata(JsonNode node) {
+		String versionId = node.get("version").textValue();
+		Version version = VersionParser.DEFAULT.safeParse(versionId);
+		if (version == null) {
+			return null;
+		}
+		DefaultMetadataElement versionMetadata = new DefaultMetadataElement();
+		versionMetadata.setId(versionId);
+		versionMetadata.setName(determineDisplayName(version));
+		versionMetadata.setDefault(node.get("current").booleanValue());
+		return versionMetadata;
+	}
+
+	private String determineDisplayName(Version version) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(version.getMajor()).append(".").append(version.getMinor()).append(".").append(version.getPatch());
+		if (version.getQualifier() != null) {
+			sb.append(determineSuffix(version.getQualifier()));
+		}
+		return sb.toString();
+	}
+
+	private String determineSuffix(Qualifier qualifier) {
+		String id = qualifier.getId();
+		if (id.equals("RELEASE")) {
+			return "";
+		}
+		StringBuilder sb = new StringBuilder(" (");
+		if (id.contains("SNAPSHOT")) {
+			sb.append("SNAPSHOT");
+		}
+		else {
+			sb.append(id);
+			if (qualifier.getVersion() != null) {
+				sb.append(qualifier.getVersion());
+			}
+		}
+		sb.append(")");
+		return sb.toString();
+	}
+
+	private static class VersionMetadataElementComparator implements Comparator<DefaultMetadataElement> {
+
+		private static final VersionParser versionParser = VersionParser.DEFAULT;
+
+		@Override
+		public int compare(DefaultMetadataElement o1, DefaultMetadataElement o2) {
+			Version o1Version = versionParser.parse(o1.getId());
+			Version o2Version = versionParser.parse(o2.getId());
+			return o1Version.compareTo(o2Version);
+		}
+
 	}
 
 }

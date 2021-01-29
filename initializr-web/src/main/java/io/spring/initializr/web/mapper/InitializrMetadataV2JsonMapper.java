@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -16,12 +16,17 @@
 
 package io.spring.initializr.web.mapper;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import io.spring.initializr.generator.version.Version;
+import io.spring.initializr.generator.version.Version.Format;
+import io.spring.initializr.generator.version.VersionParser;
 import io.spring.initializr.metadata.DefaultMetadataElement;
 import io.spring.initializr.metadata.DependenciesCapability;
 import io.spring.initializr.metadata.Dependency;
@@ -33,7 +38,6 @@ import io.spring.initializr.metadata.SingleSelectCapability;
 import io.spring.initializr.metadata.TextCapability;
 import io.spring.initializr.metadata.Type;
 import io.spring.initializr.metadata.TypeCapability;
-import org.json.JSONObject;
 
 import org.springframework.hateoas.TemplateVariable;
 import org.springframework.hateoas.TemplateVariables;
@@ -44,46 +48,43 @@ import org.springframework.util.StringUtils;
  * A {@link InitializrMetadataJsonMapper} handling the metadata format for v2.
  *
  * @author Stephane Nicoll
+ * @author Guillaume Gerbaud
  */
 public class InitializrMetadataV2JsonMapper implements InitializrMetadataJsonMapper {
+
+	private static final JsonNodeFactory nodeFactory = JsonNodeFactory.instance;
 
 	private final TemplateVariables templateVariables;
 
 	public InitializrMetadataV2JsonMapper() {
 		this.templateVariables = new TemplateVariables(
-				new TemplateVariable("dependencies",
-						TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("packaging",
-						TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("javaVersion",
-						TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("language",
-						TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("bootVersion",
-						TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("groupId",
-						TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("artifactId",
-						TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("version",
-						TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("dependencies", TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("packaging", TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("javaVersion", TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("language", TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("bootVersion", TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("groupId", TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("artifactId", TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("version", TemplateVariable.VariableType.REQUEST_PARAM),
 				new TemplateVariable("name", TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("description",
-						TemplateVariable.VariableType.REQUEST_PARAM),
-				new TemplateVariable("packageName",
-						TemplateVariable.VariableType.REQUEST_PARAM));
+				new TemplateVariable("description", TemplateVariable.VariableType.REQUEST_PARAM),
+				new TemplateVariable("packageName", TemplateVariable.VariableType.REQUEST_PARAM));
+	}
+
+	protected JsonNodeFactory nodeFactory() {
+		return nodeFactory;
 	}
 
 	@Override
 	public String write(InitializrMetadata metadata, String appUrl) {
-		JSONObject delegate = new JSONObject();
+		ObjectNode delegate = nodeFactory.objectNode();
 		links(delegate, metadata.getTypes().getContent(), appUrl);
 		dependencies(delegate, metadata.getDependencies());
 		type(delegate, metadata.getTypes());
 		singleSelect(delegate, metadata.getPackagings());
 		singleSelect(delegate, metadata.getJavaVersions());
 		singleSelect(delegate, metadata.getLanguages());
-		singleSelect(delegate, metadata.getBootVersions());
+		singleSelect(delegate, metadata.getBootVersions(), this::mapVersionMetadata, this::formatVersion);
 		text(delegate, metadata.getGroupId());
 		text(delegate, metadata.getArtifactId());
 		text(delegate, metadata.getVersion());
@@ -93,109 +94,142 @@ public class InitializrMetadataV2JsonMapper implements InitializrMetadataJsonMap
 		return delegate.toString();
 	}
 
-	protected Map<String, Object> links(JSONObject parent, List<Type> types, String appUrl) {
-		Map<String, Object> content = new LinkedHashMap<>();
-		types.forEach(it -> content.put(it.getId(), link(appUrl, it)));
-		parent.put("_links", content);
+	protected ObjectNode links(ObjectNode parent, List<Type> types, String appUrl) {
+		ObjectNode content = nodeFactory.objectNode();
+		types.forEach((it) -> content.set(it.getId(), link(appUrl, it)));
+		parent.set("_links", content);
 		return content;
 	}
 
-	protected Map<String, Object> link(String appUrl, Type type) {
-		Map<String, Object> result = new LinkedHashMap<>();
+	protected ObjectNode link(String appUrl, Type type) {
+		ObjectNode result = nodeFactory.objectNode();
 		result.put("href", generateTemplatedUri(appUrl, type));
 		result.put("templated", true);
 		return result;
 	}
 
 	private String generateTemplatedUri(String appUrl, Type type) {
-		String uri = appUrl != null ? appUrl + type.getAction() : type.getAction();
+		String uri = (appUrl != null) ? appUrl + type.getAction() : type.getAction();
 		uri = uri + "?type=" + type.getId();
-		UriTemplate uriTemplate = new UriTemplate(uri, this.templateVariables);
+		UriTemplate uriTemplate = UriTemplate.of(uri, this.templateVariables);
 		return uriTemplate.toString();
 	}
 
-	protected void dependencies(JSONObject parent, DependenciesCapability capability) {
-		Map<String, Object> map = new LinkedHashMap<>();
-		map.put("type", capability.getType().getName());
-		map.put("values",
-				capability.getContent().stream().map(this::mapDependencyGroup)
-						.collect(Collectors.toList()));
-		parent.put(capability.getId(), map);
+	protected void dependencies(ObjectNode parent, DependenciesCapability capability) {
+		ObjectNode dependencies = nodeFactory.objectNode();
+		dependencies.put("type", capability.getType().getName());
+		ArrayNode values = nodeFactory.arrayNode();
+		values.addAll(capability.getContent().stream().map(this::mapDependencyGroup).collect(Collectors.toList()));
+		dependencies.set("values", values);
+		parent.set(capability.getId(), dependencies);
 	}
 
-	protected void type(JSONObject parent, TypeCapability capability) {
-		Map<String, Object> map = new LinkedHashMap<>();
-		map.put("type", "action");
+	protected void type(ObjectNode parent, TypeCapability capability) {
+		ObjectNode type = nodeFactory.objectNode();
+		type.put("type", "action");
 		Type defaultType = capability.getDefault();
 		if (defaultType != null) {
-			map.put("default", defaultType.getId());
+			type.put("default", defaultType.getId());
 		}
-		map.put("values", capability.getContent().stream().map(this::mapType)
-				.collect(Collectors.toList()));
-		parent.put("type", map);
+		ArrayNode values = nodeFactory.arrayNode();
+		values.addAll(capability.getContent().stream().map(this::mapType).collect(Collectors.toList()));
+		type.set("values", values);
+		parent.set("type", type);
 	}
 
-	protected void singleSelect(JSONObject parent, SingleSelectCapability capability) {
-		Map<String, Object> map = new LinkedHashMap<>();
-		map.put("type", capability.getType().getName());
+	protected void singleSelect(ObjectNode parent, SingleSelectCapability capability) {
+		singleSelect(parent, capability, this::mapValue, (id) -> id);
+	}
+
+	/**
+	 * Map a {@link SingleSelectCapability} invoking the specified {@code valueMapper}.
+	 * @param parent the parent node
+	 * @param capability the capability to map
+	 * @param valueMapper the function to invoke to transform one value of the capability
+	 * @deprecated in favor of
+	 * {@link #singleSelect(ObjectNode, SingleSelectCapability, Function, Function)}
+	 */
+	@Deprecated
+	protected void singleSelect(ObjectNode parent, SingleSelectCapability capability,
+			Function<MetadataElement, ObjectNode> valueMapper) {
+		singleSelect(parent, capability, valueMapper, (id) -> id);
+	}
+
+	protected void singleSelect(ObjectNode parent, SingleSelectCapability capability,
+			Function<MetadataElement, ObjectNode> valueMapper, Function<String, String> defaultMapper) {
+		ObjectNode single = nodeFactory.objectNode();
+		single.put("type", capability.getType().getName());
 		DefaultMetadataElement defaultType = capability.getDefault();
 		if (defaultType != null) {
-			map.put("default", defaultType.getId());
+			single.put("default", defaultMapper.apply(defaultType.getId()));
 		}
-		map.put("values", capability.getContent().stream().map(this::mapValue)
-				.collect(Collectors.toList()));
-		parent.put(capability.getId(), map);
+		ArrayNode values = nodeFactory.arrayNode();
+		values.addAll(capability.getContent().stream().map(valueMapper).collect(Collectors.toList()));
+		single.set("values", values);
+		parent.set(capability.getId(), single);
 	}
 
-	protected void text(JSONObject parent, TextCapability capability) {
-		Map<String, Object> map = new LinkedHashMap<>();
-		map.put("type", capability.getType().getName());
+	protected void text(ObjectNode parent, TextCapability capability) {
+		ObjectNode text = nodeFactory.objectNode();
+		text.put("type", capability.getType().getName());
 		String defaultValue = capability.getContent();
 		if (StringUtils.hasText(defaultValue)) {
-			map.put("default", defaultValue);
+			text.put("default", defaultValue);
 		}
-		parent.put(capability.getId(), map);
+		parent.set(capability.getId(), text);
 	}
 
-	protected Map<String, Object> mapDependencyGroup(DependencyGroup group) {
-		Map<String, Object> result = new LinkedHashMap<>();
+	protected ObjectNode mapDependencyGroup(DependencyGroup group) {
+		ObjectNode result = nodeFactory.objectNode();
 		result.put("name", group.getName());
-		if ((group instanceof Describable)
-				&& ((Describable) group).getDescription() != null) {
+		if ((group instanceof Describable) && ((Describable) group).getDescription() != null) {
 			result.put("description", ((Describable) group).getDescription());
 		}
-		List<Object> items = new ArrayList<>();
-		group.getContent().forEach(it -> {
-			Map<String, Object> dependency = mapDependency(it);
+		ArrayNode items = nodeFactory.arrayNode();
+		group.getContent().forEach((it) -> {
+			JsonNode dependency = mapDependency(it);
 			if (dependency != null) {
 				items.add(dependency);
 			}
 		});
-		result.put("values", items);
+		result.set("values", items);
 		return result;
 	}
 
-	protected Map<String, Object> mapDependency(Dependency dependency) {
-		if (dependency.getVersionRange() == null) {
-			// only map the dependency if no versionRange is set
+	protected ObjectNode mapDependency(Dependency dependency) {
+		if (dependency.getCompatibilityRange() == null) {
+			// only map the dependency if no compatibilityRange is set
 			return mapValue(dependency);
 		}
 		return null;
 	}
 
-	protected Map<String, Object> mapType(Type type) {
-		Map<String, Object> result = mapValue(type);
+	protected ObjectNode mapType(Type type) {
+		ObjectNode result = mapValue(type);
 		result.put("action", type.getAction());
-		result.put("tags", type.getTags());
+		ObjectNode tags = nodeFactory.objectNode();
+		type.getTags().forEach(tags::put);
+		result.set("tags", tags);
 		return result;
 	}
 
-	protected Map<String, Object> mapValue(MetadataElement value) {
-		Map<String, Object> result = new LinkedHashMap<>();
+	private ObjectNode mapVersionMetadata(MetadataElement value) {
+		ObjectNode result = nodeFactory.objectNode();
+		result.put("id", formatVersion(value.getId()));
+		result.put("name", value.getName());
+		return result;
+	}
+
+	protected String formatVersion(String versionId) {
+		Version version = VersionParser.DEFAULT.safeParse(versionId);
+		return (version != null) ? version.format(Format.V1).toString() : versionId;
+	}
+
+	protected ObjectNode mapValue(MetadataElement value) {
+		ObjectNode result = nodeFactory.objectNode();
 		result.put("id", value.getId());
 		result.put("name", value.getName());
-		if ((value instanceof Describable)
-				&& ((Describable) value).getDescription() != null) {
+		if ((value instanceof Describable) && ((Describable) value).getDescription() != null) {
 			result.put("description", ((Describable) value).getDescription());
 		}
 		return result;

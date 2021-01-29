@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2017 the original author or authors.
+ * Copyright 2012-2020 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -15,9 +15,6 @@
  */
 
 package io.spring.initializr.actuate.stat;
-
-import java.net.URI;
-import java.net.URISyntaxException;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.boot.context.properties.NestedConfigurationProperty;
@@ -35,13 +32,16 @@ public class StatsProperties {
 	private final Elastic elastic = new Elastic();
 
 	public Elastic getElastic() {
-		return elastic;
+		return this.elastic;
 	}
 
+	/**
+	 * Elasticsearch configuration.
+	 */
 	public static final class Elastic {
 
 		/**
-		 * Elastic service uri.
+		 * Elastic service uri. Overrides username and password when UserInfo is set.
 		 */
 		private String uri;
 
@@ -51,7 +51,7 @@ public class StatsProperties {
 		private String username;
 
 		/**
-		 * Elastic service password
+		 * Elastic service password.
 		 */
 		private String password;
 
@@ -61,17 +61,12 @@ public class StatsProperties {
 		private String indexName = "initializr";
 
 		/**
-		 * Name of the entity to use to publish stats.
-		 */
-		private String entityName = "request";
-
-		/**
 		 * Number of attempts before giving up.
 		 */
 		private int maxAttempts = 3;
 
 		public String getUsername() {
-			return username;
+			return this.username;
 		}
 
 		public void setUsername(String username) {
@@ -79,7 +74,7 @@ public class StatsProperties {
 		}
 
 		public String getPassword() {
-			return password;
+			return this.password;
 		}
 
 		public void setPassword(String password) {
@@ -87,23 +82,15 @@ public class StatsProperties {
 		}
 
 		public String getIndexName() {
-			return indexName;
+			return this.indexName;
 		}
 
 		public void setIndexName(String indexName) {
 			this.indexName = indexName;
 		}
 
-		public String getEntityName() {
-			return entityName;
-		}
-
-		public void setEntityName(String entityName) {
-			this.entityName = entityName;
-		}
-
 		public int getMaxAttempts() {
-			return maxAttempts;
+			return this.maxAttempts;
 		}
 
 		public void setMaxAttempts(int maxAttempts) {
@@ -111,21 +98,11 @@ public class StatsProperties {
 		}
 
 		public String getUri() {
-			return uri;
+			return this.uri;
 		}
 
 		public void setUri(String uri) {
 			this.uri = cleanUri(uri);
-		}
-
-		public URI getEntityUrl() {
-			String string = uri + "/" + indexName + "/" + entityName;
-			try {
-				return new URI(string);
-			}
-			catch (URISyntaxException ex) {
-				throw new IllegalStateException("Cannot create entity URL: " + string, ex);
-			}
 		}
 
 		private static String cleanUri(String contextPath) {

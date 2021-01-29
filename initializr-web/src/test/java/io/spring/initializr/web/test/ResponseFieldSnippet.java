@@ -1,11 +1,11 @@
 /*
- * Copyright 2012-2015 the original author or authors.
+ * Copyright 2012-2019 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *      http://www.apache.org/licenses/LICENSE-2.0
+ *      https://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -32,12 +32,12 @@ import org.springframework.restdocs.snippet.WriterResolver;
 import org.springframework.restdocs.templates.TemplateEngine;
 
 /**
- * Creates a separate snippet for a single field in a larger payload. The output
- * comes in a sub-directory ("response-fields") of one containing the request and
- * response snippets, with a file name the same as the path. An exception to the last
- * rule is if you pick a single array element by using a path like `foo.bar[0]`, the
- * snippet file name is then just the array name (because asciidoctor cannot import
- * snippets with brackets in the name).
+ * Creates a separate snippet for a single field in a larger payload. The output comes in
+ * a sub-directory ("response-fields") of one containing the request and response
+ * snippets, with a file name the same as the path. An exception to the last rule is if
+ * you pick a single array element by using a path like `foo.bar[0]`, the snippet file
+ * name is then just the array name (because asciidoctor cannot import snippets with
+ * brackets in the name).
  *
  * @author Dave Syer
  */
@@ -71,7 +71,7 @@ public class ResponseFieldSnippet extends TemplatedSnippet {
 		}
 		this.file = file;
 		this.path = path;
-		objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
+		this.objectMapper.configure(SerializationFeature.INDENT_OUTPUT, true);
 	}
 
 	/*
@@ -80,12 +80,10 @@ public class ResponseFieldSnippet extends TemplatedSnippet {
 	 */
 	@Override
 	public void document(Operation operation) throws IOException {
-		RestDocumentationContext context = (RestDocumentationContext) operation
-				.getAttributes().get(RestDocumentationContext.class.getName());
-		WriterResolver writerResolver = (WriterResolver) operation.getAttributes()
-				.get(WriterResolver.class.getName());
-		try (Writer writer = writerResolver
-				.resolve(operation.getName() + "/" + getSnippetName(), file, context)) {
+		RestDocumentationContext context = (RestDocumentationContext) operation.getAttributes()
+				.get(RestDocumentationContext.class.getName());
+		WriterResolver writerResolver = (WriterResolver) operation.getAttributes().get(WriterResolver.class.getName());
+		try (Writer writer = writerResolver.resolve(operation.getName() + "/" + getSnippetName(), this.file, context)) {
 			Map<String, Object> model = createModel(operation);
 			model.putAll(getAttributes());
 			TemplateEngine templateEngine = (TemplateEngine) operation.getAttributes()
@@ -97,14 +95,12 @@ public class ResponseFieldSnippet extends TemplatedSnippet {
 	@Override
 	protected Map<String, Object> createModel(Operation operation) {
 		try {
-			Object object = objectMapper.readValue(
-					operation.getResponse().getContentAsString(), Object.class);
-			Object field = fieldProcessor.extract(JsonFieldPath.compile(path), object);
-			if (field instanceof List && index != null) {
-				field = ((List<?>) field).get(index);
+			Object object = this.objectMapper.readValue(operation.getResponse().getContentAsString(), Object.class);
+			Object field = this.fieldProcessor.extract(JsonFieldPath.compile(this.path), object);
+			if (field instanceof List && this.index != null) {
+				field = ((List<?>) field).get(this.index);
 			}
-			return Collections.singletonMap("value",
-					objectMapper.writeValueAsString(field));
+			return Collections.singletonMap("value", this.objectMapper.writeValueAsString(field));
 		}
 		catch (Exception ex) {
 			throw new IllegalStateException(ex);
